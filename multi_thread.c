@@ -358,3 +358,148 @@ void* log_function(void* args){
   pthread_exit((void*)0);
 
 }
+void* mod_function(void* args){
+  char output[200];
+  char temp_string[200];
+  output[0]='\0';
+  temp_string[0]='\0';
+  int count=0;
+ int thread_id=*((int*)args);
+ while(genf_cond==0){ //it waits for queue1 to be created.
+
+ }
+  if(modf_cond==0){ //it will create queue2 if it is not created.
+    //mutex1
+    pthread_mutex_lock(&mod_mutex1);
+    if(queue2 == NULL){
+      queue2=createQueue();
+      for (size_t i = 0; i<(SIZE/5)*(SIZE/5); i++)
+        enQueue(queue2,i);//it add all elements into queue but their inside
+      modf_cond=1;
+    }
+    pthread_mutex_unlock(&mod_mutex1);
+    //close mutex1
+  }
+  struct QNode* temp;
+  struct QNode* temp2;
+  int cond_temp=0;
+
+  while(count!=(SIZE/5)*(SIZE/5)){
+
+        temp=queue1->front;
+        temp2=queue2->front;
+        count=0;
+
+        while(temp !=NULL){
+          //mutex2
+          pthread_mutex_lock(&mod_mutex2);
+          if(temp->gen_status>=2&&temp->mod_status==0){
+            temp->mod_status=1;
+            cond_temp=1;
+          }
+          //mutex2
+          pthread_mutex_unlock(&mod_mutex2);
+
+
+          if(cond_temp==1){
+
+            while(temp2!=NULL){
+              if(temp2->id==temp->id)
+                break;
+
+              temp2=temp2->next;
+            }
+            if(temp2!=NULL){
+              temp2->node=create_mod_inner_matrix(temp->node->in_matrix);
+              temp->mod_status=2;
+              temp2->mod_status=2;
+              log_into_matrix(temp->id,temp->node->in_matrix);
+
+              sprintf(output,"Mod_%d genereted following submatrix into bigger matrix\n", thread_id);
+              print_in_matrix(temp_string,temp2->node->in_matrix);
+              strcat(output,temp_string);
+              sprintf(temp_string,"From  [%d,%d] submatrix\n",(temp->id/(SIZE/5)),(temp->id%(SIZE/5))  );
+              strcat(output,temp_string);
+              printf("%s\n",output );
+
+            }
+
+            cond_temp=0;
+          }
+          if(temp->mod_status > 0)
+            count ++;
+
+          if(count==(SIZE/2)*(SIZE/2)){
+            break;
+          }
+          temp=temp->next;
+        }
+
+
+  }
+  //
+
+  pthread_exit((void*)0);
+
+
+}
+void* sum_function(void* args){
+  char output[200];
+  char temp_string[200];
+  output[0]='\0';
+  temp_string[0]='\0';
+  int local_sum=0;
+  int count=0;
+ int thread_id=*((int*)args);
+ while(modf_cond==0){
+
+ }
+  struct QNode* temp;
+  int cond_temp=0;
+  while(count!=(SIZE/5)*(SIZE/5)){
+
+        temp=queue2->front;
+
+        count=0;
+
+        while(temp !=NULL){
+
+          pthread_mutex_lock(&sum_mutex1);
+          if(temp->mod_status==2&&temp->sum_status==0){
+            temp->sum_status=1;
+            cond_temp=1;
+          }
+          pthread_mutex_unlock(&sum_mutex1);
+
+
+          if(cond_temp==1){
+
+
+            temp->sum_status=2;
+            local_sum=calculate_sum(temp->node->in_matrix);
+            pthread_mutex_lock(&global_sum_mutex);
+            int temp_global_sum=global_sum;
+            global_sum+=local_sum;
+            printf("Add_%d has local sum :%d by [%d,%d] submatrix, global sum before/after update:%d/%d\n", thread_id,local_sum,(temp->id/(SIZE/5)),(temp->id%(SIZE/5)),temp_global_sum,global_sum);
+
+            //sprintf(output,"Add_%d has local sum :%d by [%d,%d] submatrix, global sum before/after update:%d/%d\n", thread_id,local_sum,(temp->id%(SIZE/5)),(temp->id/(SIZE/5)),temp_global_sum,global_sum);
+            pthread_mutex_unlock(&global_sum_mutex);
+            //printf("%s\n",output );
+
+            cond_temp=0;
+          }
+          if(temp->sum_status > 0)
+            count ++;
+
+          if(count==(SIZE/2)*(SIZE/2)){
+            break;
+          }
+          temp=temp->next;
+        }
+
+
+  }
+  pthread_exit((void*)0);
+
+
+}
