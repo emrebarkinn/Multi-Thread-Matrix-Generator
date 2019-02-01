@@ -503,3 +503,102 @@ void* sum_function(void* args){
 
 
 }
+int main(int argc, char *argv[]){
+
+
+  if(argc!=8){
+    perror("Invalid number of argument ");
+  }
+  printf("%d",0%2);
+  //(int) strtol(str, (char **)NULL, 10)
+  SIZE=atoi(argv[2]);
+  if(SIZE%5 !=0){
+    perror("Please enter a size which is divisible by 5");
+    return 1;
+  }
+  int gen_thread_size=atoi(argv[4]);
+  //initialize_matrix();  //creates bigger marix
+  int log_thread_size=atoi(argv[5]);
+  int mod_thread_size=atoi(argv[6]);
+  int sum_thread_size=atoi(argv[7]);
+
+  pthread_mutex_init(&global_sum_mutex,NULL);
+
+  pthread_mutex_init(&gen_mutex1,NULL);
+  pthread_mutex_init(&gen_mutex2,NULL);
+
+  pthread_mutex_init(&log_mutex1,NULL);
+  pthread_mutex_init(&log_mutex2,NULL);
+
+  pthread_mutex_init(&mod_mutex1,NULL);
+  pthread_mutex_init(&mod_mutex2,NULL);
+
+  pthread_mutex_init(&sum_mutex1,NULL);
+
+  pthread_t generate_thread[gen_thread_size];
+  pthread_t log_thread[log_thread_size];
+  pthread_t mod_thread[mod_thread_size];
+  pthread_t sum_thread[sum_thread_size];
+
+  for (int i = 0; i < gen_thread_size
+    ; i++) {
+    pthread_create (&generate_thread[i],NULL,&generete_function,(void*)&i);
+  }
+  for (int i = 0; i < log_thread_size; i++) {
+    pthread_create (&log_thread[i],NULL,&log_function,(void*)&i);
+  }
+  for (int i = 0; i < mod_thread_size; i++) {
+    pthread_create (&mod_thread[i],NULL,&mod_function,(void*)&i);
+  }
+  for (int i = 0; i < sum_thread_size; i++) {
+    pthread_create (&sum_thread[i],NULL,&sum_function,(void*)&i);
+  }
+
+
+
+  for (size_t i = 0; i < gen_thread_size; i++) {
+    pthread_join(generate_thread[i],NULL);
+  }
+  for (size_t i = 0; i < log_thread_size; i++) {
+    pthread_join(log_thread[i],NULL);
+  }
+  for (size_t i = 0; i < mod_thread_size; i++) {
+    pthread_join(mod_thread[i],NULL);
+  }
+  for (size_t i = 0; i < sum_thread_size; i++) {
+    pthread_join(sum_thread[i],NULL);
+  }
+
+  print_matrix();
+
+  FILE *fptr;
+  fptr=fopen("output_file.txt","w");
+  fprintf(fptr, "The matrix is  \n");
+
+  for (size_t j = 0; j < SIZE; j++) {
+    if(j!=0 && j%5==0)
+      fprintf(fptr,"\n");
+    for (size_t i = 0; i < SIZE; i++) {
+      if(i!=0 && i%5==0)
+        fprintf(fptr,"  ");
+      fprintf(fptr,"%3d",matrix[j][i]);
+
+    }
+    fprintf(fptr,"\n");
+
+  }
+  fprintf(fptr, "The global sum is :%d\n",global_sum );
+
+  fclose(fptr);
+
+  pthread_mutex_destroy(&gen_mutex1);
+  pthread_mutex_destroy(&gen_mutex2);
+  pthread_mutex_destroy(&log_mutex1);
+  pthread_mutex_destroy(&log_mutex2);
+  pthread_mutex_destroy(&mod_mutex1);
+  pthread_mutex_destroy(&mod_mutex2);
+  pthread_mutex_destroy(&sum_mutex1);
+  pthread_mutex_destroy(&global_sum_mutex);
+  pthread_exit(NULL);
+  return 1;
+}
