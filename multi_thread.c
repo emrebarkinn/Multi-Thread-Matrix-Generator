@@ -206,3 +206,155 @@ int calculate_sum(int in_matrix[5][5]){
   return sum;
 
 }
+void* generete_function(void* args){
+  char output[200];
+  char temp_string[200];
+  output[0]='\0';
+  temp_string[0]='\0';
+  int count=0;
+  int thread_id=*((int*)args);
+
+  if(genf_cond==0){//we create this global cond for checking queue is created or not
+    //mutex1
+    pthread_mutex_lock(&gen_mutex1);
+    if(queue1 == NULL){
+      queue1=createQueue();
+      for (size_t i = 0; i<(SIZE/5)*(SIZE/5); i++)
+        enQueue(queue1,i);
+
+      genf_cond=1;//that means queue is created.
+    }
+    pthread_mutex_unlock(&gen_mutex1);
+    //close mutex1
+  }
+  struct QNode* temp;
+  int cond_temp=0;
+  while(count!=(SIZE/5)*(SIZE/5)){
+
+//in this way more thread will be in creating session .
+
+
+        temp=queue1->front;
+        count=0;
+
+        while(temp !=NULL){
+          //mutex2
+
+
+          pthread_mutex_lock(&gen_mutex2);
+          if(temp->gen_status==0){//when we find a node which need to be created (inner_matrix)
+            temp->gen_status=1;//we mark that node as in generating state so other threads can not try to generate that matrix
+            cond_temp=1;//with this local variable thread will generate matrix outside of mutex range
+          }
+          //mutex2
+          pthread_mutex_unlock(&gen_mutex2);
+
+
+          if(cond_temp==1){
+            temp->node=create_inner_matrix();
+            temp->gen_status=2;// this means the inner matrix is created.
+
+            //for preventing conflicts in printing outputs
+            // we firstly write them into single string and we print that string only.
+
+            sprintf(output,"Generator_%d generated following matrix\n", thread_id);
+            print_in_matrix(temp_string,temp->node->in_matrix);
+            strcat(output,temp_string);
+            sprintf(temp_string,"This matrix is [%d,%d] submatrix\n",(temp->id/(SIZE/5)),(temp->id%(SIZE/5))  );
+            strcat(output,temp_string);
+            printf("%s\n",output );
+
+            cond_temp=0;
+          }
+          if(temp->gen_status > 0)
+            count ++;
+
+          if(count==(SIZE/2)*(SIZE/2)){ //if count equal to total inner matrix size this thread work is done.
+            break;
+          }
+          temp=temp->next;
+        }
+
+
+  }
+  //
+
+  pthread_exit((void*)0);
+}
+void* log_function(void* args){
+  char output[200];
+  char temp_string[200];
+  output[0]='\0';
+  temp_string[0]='\0';
+
+  while(genf_cond==0){ //if queue is not created it will wait until it is created
+
+  }
+  if(logf_cond==0){
+    //mutex_log_1
+    pthread_mutex_lock(&log_mutex1);
+    if(matrix==NULL){
+      initialize_matrix();//creates main matrix
+      logf_cond=1;//preventing threads to enter this mutex again
+    }
+    pthread_mutex_unlock(&log_mutex1);
+    //mutex_log_1
+  }
+
+  int count=0;
+
+  int thread_id=*((int*)args);
+  struct QNode* temp;
+  int cond_temp=0;
+  while(count!=(SIZE/5)*(SIZE/5)){
+
+
+
+
+        temp=queue1->front;
+
+        count=0;
+        while(temp !=NULL){
+          //mutex_log_2
+          pthread_mutex_lock(&log_mutex2);
+          if(temp->gen_status==2){//we can only log a matris if it is in created state
+            temp->gen_status=3;//this state means it created and logged.
+            cond_temp=1;
+          }
+          pthread_mutex_unlock(&log_mutex2);
+          //mutex_log_2
+
+
+          if(cond_temp==1){
+
+            log_into_matrix(temp->id,temp->node->in_matrix);
+
+            //for preventing conflicts in printing outputs
+            // we firstly write them into single string and we print that string only.
+
+            sprintf(output,"Log_%d put following submatrix into bigger matrix\n", thread_id);
+            print_in_matrix(temp_string,temp->node->in_matrix);
+            strcat(output,temp_string);
+            sprintf(temp_string,"This matrix is [%d,%d] submatrix\n",(temp->id/(SIZE/5)),(temp->id%(SIZE/5)) );
+            strcat(output,temp_string);
+            printf("%s\n",output );
+
+            cond_temp=0;
+          }
+
+          if(temp->gen_status==3)//we count matrices which are created.
+            count++;
+          if(count==(SIZE/2)*(SIZE/2)){//if count equal to total inner matrix number thread will exit the loop
+            break;
+          }
+
+
+          temp=temp->next;
+        }
+
+
+  }
+
+  pthread_exit((void*)0);
+
+}
